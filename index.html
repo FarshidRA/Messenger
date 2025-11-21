@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Group Messenger (GitHub Pages Compatible)</title>
+  <title>Group Messenger (Supabase + GitHub Pages)</title>
   <style>
     body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; }
     #messages { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; }
@@ -12,7 +12,7 @@
   </style>
 </head>
 <body>
-  <h2>Group Messenger (No Login — GitHub Pages Compatible)</h2>
+  <h2>Group Messenger (No Login — Supabase Realtime)</h2>
 
   <div id="messages"></div>
 
@@ -21,24 +21,16 @@
     <button id="send">Send</button>
   </div>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
-    // Your Firebase project config (replace with your own)
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_APP.firebaseapp.com",
-      databaseURL: "https://YOUR_APP-default-rtdb.firebaseio.com",
-      projectId: "YOUR_APP",
-      storageBucket: "YOUR_APP.appspot.com",
-      messagingSenderId: "SENDER_ID",
-      appId: "APP_ID"
-    };
+    // ----- REPLACE WITH YOUR OWN SUPABASE PROJECT KEYS -----
+    const supabaseUrl = "https://qcqzwcflqoyiebjfyxgv.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcXp3Y2ZscW95aWViamZ5eGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MjA4MDAsImV4cCI6MjA3OTI5NjgwMH0.fqr7tkLUm-fj-twZcLE7xDIZv5VCga-SnsxVtxzSS8A";
+    // --------------------------------------------------------
 
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    const sb = supabase.createClient(supabaseUrl, supabaseKey);
 
     const messagesBox = document.getElementById("messages");
     const msgInput = document.getElementById("msg");
@@ -51,16 +43,32 @@
       messagesBox.scrollTop = messagesBox.scrollHeight;
     }
 
-    // Listen for new messages
-    db.ref("messages").on("child_added", snapshot => {
-      addMessage(snapshot.val());
-    });
+    // Load old messages
+    async function loadMessages() {
+      const { data } = await sb.from("messages").select("*").order("id", { ascending: true });
+      if (data) data.forEach(row => addMessage(row.text));
+    }
+    loadMessages();
 
-    sendBtn.onclick = () => {
-      if (msgInput.value.trim() !== "") {
-        db.ref("messages").push(msgInput.value.trim());
-        msgInput.value = "";
-      }
+    // Realtime listener
+    sb
+      .channel("messages-channel")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        payload => {
+          addMessage(payload.new.text);
+        }
+      )
+      .subscribe();
+
+    // Send message
+    sendBtn.onclick = async () => {
+      const txt = msgInput.value.trim();
+      if (!txt) return;
+
+      await sb.from("messages").insert({ text: txt });
+      msgInput.value = "";
     };
 
     msgInput.addEventListener("keypress", e => {
