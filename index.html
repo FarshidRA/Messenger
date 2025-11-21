@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Group Messenger (Supabase + GitHub Pages)</title>
+  <title>Group Messenger (GitHub Pages + Supabase)</title>
   <style>
     body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; }
     #messages { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; }
@@ -12,7 +12,7 @@
   </style>
 </head>
 <body>
-  <h2>Group Messenger (No Login — Supabase Realtime)</h2>
+  <h2>Group Messenger (Supabase Realtime)</h2>
 
   <div id="messages"></div>
 
@@ -21,68 +21,51 @@
     <button id="send">Send</button>
   </div>
 
-  <!-- Supabase -->
+  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <script>
-    // ----- REPLACE WITH YOUR OWN SUPABASE PROJECT KEYS -----
-    const supabaseUrl = "https://qcqzwcflqoyiebjfyxgv.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcXp3Y2ZscW95aWViamZ5eGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MjA4MDAsImV4cCI6MjA3OTI5NjgwMH0.fqr7tkLUm-fj-twZcLE7xDIZv5VCga-SnsxVtxzSS8A";
-    // --------------------------------------------------------
+    // جایگزین کردن مقادیر خودتان
+    const supabaseUrl = https://qcqzwcflqoyiebjfyxgv.supabase.co;
+    const supabaseKey = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcXp3Y2ZscW95aWViamZ5eGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MjA4MDAsImV4cCI6MjA3OTI5NjgwMH0.fqr7tkLUm-fj-twZcLE7xDIZv5VCga-SnsxVtxzSS8A;
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-    const sb = supabase.createClient(supabaseUrl, supabaseKey);
-
-    const messagesBox = document.getElementById("messages");
-    const msgInput = document.getElementById("msg");
-    const sendBtn = document.getElementById("send");
+    const messagesBox = document.getElementById('messages');
+    const msgInput = document.getElementById('msg');
+    const sendBtn = document.getElementById('send');
 
     function addMessage(text) {
-      const div = document.createElement("div");
+      const div = document.createElement('div');
       div.textContent = text;
       messagesBox.appendChild(div);
       messagesBox.scrollTop = messagesBox.scrollHeight;
     }
 
-    // Load old messages
+    // بارگذاری پیام‌های موجود
     async function loadMessages() {
-      const { data } = await sb.from("messages").select("*").order("id", { ascending: true });
-      if (data) data.forEach(row => addMessage(row.text));
+      const { data } = await supabase.from('messages').select();
+      data.forEach(row => addMessage(row.text));
     }
+
     loadMessages();
 
-    // Realtime listener
-    sb
-      .channel("messages-channel")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        payload => {
-          addMessage(payload.new.text);
-        }
-      )
+    // کانال Realtime
+    supabase.channel('realtime:public:messages')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+        addMessage(payload.new.text);
+      })
       .subscribe();
 
-    // Send message
+    // ارسال پیام
     sendBtn.onclick = async () => {
-      const txt = msgInput.value.trim();
-      if (!txt) return;
-
-      await sb.from("messages").insert({ text: txt });
-      msgInput.value = "";
+      if (msgInput.value.trim() !== '') {
+        await supabase.from('messages').insert({ text: msgInput.value.trim() });
+        msgInput.value = '';
+      }
     };
 
-    msgInput.addEventListener("keypress", e => {
-      if (e.key === "Enter") sendBtn.click();
+    msgInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') sendBtn.click();
     });
-
-    const sb = supabase.createClient(supabaseUrl, supabaseKey);
-
-sb.channel('realtime:public:messages')
-  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-    console.log(payload.new.text);
-  })
-  .subscribe();
-
   </script>
 </body>
 </html>
